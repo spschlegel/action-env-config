@@ -1,10 +1,12 @@
 name: "Check Git(hub) environment configuration"
 description: "Checks and outputs the github and git environment"
-author: "spschlegel"
+author: "Simon Schlegel"
 branding:
   icon: "check-circle"
   color: "gray-dark"
+
 outputs:
+  # Github Workflow Configuration
   trigger_type:
     description: "The type of the trigger (one of: automatic, manual)"
     value: ${{ steps.check_trigger.outputs.trigger_type }}
@@ -14,12 +16,15 @@ outputs:
   pre-release:
     description: "Whether the tag is a semver pre-release tag (boolean; false if trigger was not a tag)"
     value: ${{ steps.check_tag.outputs.pre-release }}
+
+  # Git Configuration
   last-tag:
     description: "The last tag before the current one that triggered the workflow (string)"
     value: ${{ steps.get_last_tag.outputs.tag }}
   last-production-tag:
     description: "The last semver release tag before the current one that triggered the workflow (string)"
     value: ${{ steps.get_last_release_tag.outputs.production_tag }}
+
 runs:
   using: "composite"
   steps:
