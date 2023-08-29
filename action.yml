@@ -1,0 +1,84 @@
+name: "Check Git(hub) environment configuration"
+description: "Checks and outputs the github and git environment"
+author: "spschlegel"
+branding:
+  icon: "check-circle"
+  color: "gray-dark"
+outputs:
+  trigger_type:
+    description: "The type of the trigger (one of: automatic, manual)"
+    value: ${{ steps.check_trigger.outputs.trigger_type }}
+  tagged:
+    description: "Whether the trigger was a tag (boolean)"
+    value: ${{ steps.check_ref.outputs.tagged }}
+  pre-release:
+    description: "Whether the tag is a semver pre-release tag (boolean; false if trigger was not a tag)"
+    value: ${{ steps.check_tag.outputs.pre-release }}
+  last-tag:
+    description: "The last tag before the current one that triggered the workflow (string)"
+    value: ${{ steps.get_last_tag.outputs.tag }}
+  last-production-tag:
+    description: "The last semver release tag before the current one that triggered the workflow (string)"
+    value: ${{ steps.get_last_release_tag.outputs.production_tag }}
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout Repository with full history
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Check trigger
+      id: check_trigger
+      shell: bash
+      run: |
+        if [[ ${{ github.event_name }} = "workflow_dispatch" ]]
+        then
+          echo "trigger_type=manual" >> $GITHUB_OUTPUT
+        else
+          echo "trigger_type=automatic" >> $GITHUB_OUTPUT
+        fi
+    - name: Check ref
+      id: check_ref
+      shell: bash
+      run: |
+        if ${{ contains(github.ref, 'refs/tags/') }}
+        then
+          echo "tagged=true" >> $GITHUB_OUTPUT
+        else
+          echo "tagged=false" >> $GITHUB_OUTPUT
+        fi
+    - name: Check tag
+      id: check_tag
+      shell: bash
+      run: |
+        if [[ "${GITHUB_REF#refs/*/}" =~ "-" ]]
+        then
+          echo "pre-release=true" >> $GITHUB_OUTPUT
+        else
+          echo "pre-release=false" >> $GITHUB_OUTPUT
+        fi
+    - name: Get last tag
+      id: get_last_tag
+      # list all tags chronologically (git for-each-ref --sort=-creatordate 'refs/tags/')
+      # only display the actual tag without the hash (--format="%(refname:short)"),
+      # display only the two latest ones (head -2),
+      # pick the second to latest one (tail -1)
+      shell: bash
+      run: |
+        export TAG=$(git for-each-ref --sort=-creatordate --format="%(refname:short)" 'refs/tags/' \
+        | head -2 | tail -1)
+        echo $TAG
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+    - name: Get last release tag
+      id: get_last_release_tag
+      # list all tags chronologically (git for-each-ref --sort=-creatordate 'refs/tags/')
+      # only display the actual tag without the hash (--format="%(refname:short)"),
+      # filter for the tags NOT containing a prerelease suffix (grep -v '-'),
+      # display only the two latest tags not containing a prerelease suffix (grep -m2),
+      # pick the second to latest production tag (tail -1)
+      shell: bash
+      run: |
+        export TAG=$(git for-each-ref --sort=-creatordate --format="%(refname:short)" 'refs/tags/' \
+        | grep -m2 -v '-' | tail -1)
+        echo $TAG
+        echo "production_tag=$TAG" >> $GITHUB_OUTPUT
